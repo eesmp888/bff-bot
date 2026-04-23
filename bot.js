@@ -4,7 +4,7 @@
 // ===================================
 
 const express = require('express');
-const { Client, middleware } = require('@line/bot-sdk');
+const { Client } = require('@line/bot-sdk');
 const cron = require('node-cron');
 
 const config = {
@@ -19,39 +19,47 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 // ===== เรียกใช้ Gemini AI =====
 async function askGemini(userMessage) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`;
 
-  const body = {
-    system_instruction: {
-      parts: [{
-        text: `คุณคือ "กาก้าบอท" เพื่อนแท้และที่ปรึกษาส่วนตัวในไลน์ของผู้ใช้
+    const body = {
+      system_instruction: {
+        parts: [{
+          text: `คุณคือ "กาก้าบอท" เพื่อนแท้และที่ปรึกษาส่วนตัวในไลน์
 
-บุคลิกของคุณ:
-- ถ้าผู้ใช้คุยเล่น ตลก หรือถามเรื่องไม่จริงจัง → ตอบสนุกๆ ตลก มีมุก ใช้ภาษาวัยรุ่น มีอิโมจิ
-- ถ้าผู้ใช้ถามเรื่องจริงจัง เช่น งาน สุขภาพ การเงิน ชีวิต → ตอบจริงจัง ฉลาด ให้คำแนะนำที่ดี
+บุคลิก:
+- ถ้าผู้ใช้คุยเล่น ตลก ไม่จริงจัง → ตอบสนุกๆ มีมุก ใช้ภาษาวัยรุ่น มีอิโมจิ
+- ถ้าผู้ใช้ถามจริงจัง เช่น งาน สุขภาพ การเงิน → ตอบฉลาด จริงจัง ให้คำแนะนำดีๆ
 - พูดภาษาไทยเสมอ
-- ตอบกระชับ ไม่ยาวเกินไป เหมาะกับการอ่านในไลน์
-- ห้ามตอบเป็นภาษาอังกฤษ ยกเว้นคำศัพท์เฉพาะที่จำเป็น`
+- ตอบสั้นกระชับ เหมาะกับไลน์`
+        }]
+      },
+      contents: [{
+        role: 'user',
+        parts: [{ text: userMessage }]
       }]
-    },
-    contents: [{
-      parts: [{ text: userMessage }]
-    }]
-  };
+    };
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
 
-  const data = await response.json(); console.log('Gemini response:', JSON.stringify(data));
+    const data = await response.json();
+    console.log('Gemini status:', response.status);
 
-  if (data?.candidates?.[0]?.content?.parts?.[0]?.text) {
-    return data.candidates[0].content.parts[0].text;
+    if (data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+      return data.candidates[0].content.parts[0].text;
+    }
+
+    console.log('Gemini error:', JSON.stringify(data?.error));
+    return 'ขอโทษนะ บอทงงนิดนึง ลองใหม่ได้เลย 😅';
+
+  } catch (err) {
+    console.log('fetch error:', err.message);
+    return 'ขอโทษนะ บอทมีปัญหาซักครู่ ลองใหม่ได้เลย 😅';
   }
-
-  return 'ขอโทษนะ บอทงงนิดนึง ลองถามใหม่ได้เลย 😅';
 }
 
 // ===== ข้อความแจ้งเตือนประจำวัน =====
@@ -62,35 +70,35 @@ const messages = {
     "🐓 ไก่ขันแล้ว!! (บอทขันแทน) ตื่นเช้าวันนี้ก็เก่งแล้ว 💪",
     "🌄 6 โมงเช้า วันใหม่มาแล้ว! วันนี้จะดีกว่าเมื่อวันแน่นอน ✨",
     "😴➡️😎 ได้เวลาเปลี่ยนโหมดจากนอนหลับเป็นพิชิตโลกแล้ว!",
-    "🔔 ดิ้งดง! เช้าแล้วจ้า หายใจเข้าลึกๆ แล้วลุกขึ้นมาสู้ชีวิต!",
+    "🔔 เช้าแล้วจ้า! หายใจเข้าลึกๆ แล้วลุกขึ้นมาสู้ชีวิต!",
     "🌞 Good Morning!! บอทรอเธออยู่นะ ลุกขึ้นมาสู้ๆ เลย!",
   ],
   product: [
     "📦 19:30 แล้ว! ลงสินค้าวันนี้ยัง? อย่าลืมนะ ลูกค้ารอซื้ออยู่! 🛒",
-    "🏪 เฮ้! ได้เวลาลงสินค้าแล้ว วันนี้จะลงอะไรดี? รีบๆ หน่อยนะ 😄",
+    "🏪 ได้เวลาลงสินค้าแล้ว วันนี้จะลงอะไรดี? รีบๆ หน่อยนะ 😄",
     "💰 สินค้า 1 ชิ้นต่อวัน = รายได้เพิ่มขึ้นทุกวัน! ลงเลยนะ 🚀",
     "📸 ถ่ายรูปสวยๆ เขียนแคปชั่นปัง แล้วลงขายเลย! บอทเชียร์อยู่ 📣",
     "🛍️ ของดีต้องโชว์! ลงสินค้าวันนี้ซะ อย่าเก็บไว้คนเดียวนะ 😆",
-    "⏰ 19:30 แล้ว ตอนนี้คนออนไลน์เยอะมาก! รีบลงสินค้าก่อนใครเลย 🔥",
+    "⏰ 19:30 แล้ว คนออนไลน์เยอะมาก! รีบลงสินค้าก่อนใครเลย 🔥",
     "🎯 Mission ตอนเย็น: ลงสินค้า 1 ชิ้น ทำได้ = วันนี้สำเร็จแล้ว! ✅",
   ],
   lunch: [
-    "🍱 เที่ยงแล้ว! อย่าลืมกินข้าวนะ และกินของมีประโยชน์ด้วยนะ ไม่ใช่แค่ขนม 😅",
-    "🥗 12 โมงตรง! ร่างกายต้องการพลังงาน กินผักด้วยนะ ไม่ใช่แค่ข้าวขาวล้วน 🙏",
-    "🍚 หิวหรือยัง? ถึงเวลากินข้าวแล้ว! เลือกอาหารดีๆ ให้ร่างกายหน่อยนะ 💚",
-    "🌿 กินข้าวกลางวันแล้วหรือยัง? จำไว้นะ โปรตีน + ผัก = พลังงานทั้งบ่าย! 💪",
-    "🍜 พักกินข้าวได้แล้ว! วันนี้ลองกินอะไรที่มีประโยชน์หน่อยได้มั้ย? บอทขอร้อง 🥺",
-    "🥦 เที่ยงแล้วจ้า! กินข้าวด้วยนะ อย่างน้อยขอผักหน่อยนึงก็ยังดี 555",
-    "🍳 อาหารดี = สุขภาพดี = ชีวิตดี! ไปกินข้าวได้แล้วนะ เลือกดีๆ ด้วย ✨",
+    "🍱 เที่ยงแล้ว! อย่าลืมกินข้าวนะ กินของมีประโยชน์ด้วย ไม่ใช่แค่ขนม 😅",
+    "🥗 12 โมงตรง! กินผักด้วยนะ ไม่ใช่แค่ข้าวขาวล้วน 🙏",
+    "🍚 ถึงเวลากินข้าวแล้ว! เลือกอาหารดีๆ ให้ร่างกายหน่อยนะ 💚",
+    "🌿 โปรตีน + ผัก = พลังงานทั้งบ่าย! ไปกินข้าวได้เลย 💪",
+    "🍜 พักกินข้าวได้แล้ว! ลองกินอะไรที่มีประโยชน์หน่อยได้มั้ย? 🥺",
+    "🥦 เที่ยงแล้วจ้า! กินข้าวด้วยนะ ขอผักหน่อยนึงก็ยังดี 555",
+    "🍳 อาหารดี = สุขภาพดี = ชีวิตดี! เลือกดีๆ ด้วยนะ ✨",
   ],
   exercise: [
-    "🏃 17:15 แล้ว! ออกกำลังกายแล้วรึยัง? ถ้ายัง = ลุกขึ้นมาตอนนี้เลย! 💪",
+    "🏃 17:15 แล้ว! ออกกำลังกายแล้วรึยัง? ลุกขึ้นมาตอนนี้เลย! 💪",
     "🔥 ได้เวลาขยับร่างกายแล้ว! แค่ 20-30 นาที ก็ดีกว่าไม่ทำเลยนะ 🏋️",
-    "😤 อย่าบอกว่าเหนื่อยแล้ว! ยังไม่ได้ออกกำลังกายเลยนะวันนี้ ลุกมาเลย!",
-    "🚶 เดินแค่ 10 นาทีก็ยังดี! ดีกว่านอนดูซีรีส์ (แต่ก็ดูได้หลังออกกำลังกาย 555)",
-    "💦 เหงื่อออกซักหน่อยนะ! ร่างกายจะขอบคุณเธอมากเลย บอทรับประกัน 🏆",
-    "🎯 ออกกำลังกายวันนี้แล้วรึยัง? ถ้ายังไม่ได้ทำ = นี่คือสัญญาณ! ไปเลย! 🚀",
-    "🌟 คนที่ออกกำลังกายทุกวัน ชีวิตดีกว่าคนที่ไม่ออก... บอทพูดเองแต่จริงนะ! 😄",
+    "😤 ยังไม่ได้ออกกำลังกายเลยนะวันนี้ ลุกมาเลย!",
+    "🚶 เดินแค่ 10 นาทีก็ยังดี! ดีกว่านอนดูซีรีส์ 555",
+    "💦 เหงื่อออกซักหน่อยนะ! ร่างกายจะขอบคุณมากเลย 🏆",
+    "🎯 ออกกำลังกายวันนี้แล้วรึยัง? ถ้ายัง = ไปเลย! 🚀",
+    "🌟 คนที่ออกกำลังกายทุกวัน ชีวิตดีกว่าแน่นอน! 😄",
   ],
 };
 
@@ -107,45 +115,38 @@ cron.schedule('15 17 * * *', () => pushMsg(rand(messages.exercise)), { timezone:
 cron.schedule('30 19 * * *', () => pushMsg(rand(messages.product)),  { timezone: 'Asia/Bangkok' });
 
 // ===== WEBHOOK =====
-app.post('/webhook', express.json(), async (req, res) => {
-  console.log('📨 LINE ส่งข้อความมาแล้ว!');
+app.use('/webhook', express.json());
+
+app.post('/webhook', async (req, res) => {
   res.json({ status: 'ok' });
 
-  for (const event of req.body.events) {
+  const events = req.body?.events || [];
+  console.log(`📨 ได้รับ ${events.length} events`);
+
+  for (const event of events) {
     if (event.source?.userId) {
       USER_ID = event.source.userId;
     }
 
-    // ต้อนรับเมื่อเพิ่มเป็นเพื่อน
     if (event.type === 'follow') {
       await client.replyMessage(event.replyToken, {
         type: 'text',
-        text: '🎉 สวัสดี! กาก้าบอทพร้อมแล้ว! 💚\n\nจะแจ้งเตือนทุกวัน:\n🌅 06:00 - ปลุกตื่น\n🍱 12:00 - เตือนกินข้าว\n🏃 17:15 - เตือนออกกำลังกาย\n📦 19:30 - เตือนลงสินค้า\n\nนอกจากนี้ถามอะไรก็ได้นะ บอทตอบได้ทุกเรื่องเลย! 🤖'
+        text: '🎉 สวัสดี! กาก้าบอทพร้อมแล้ว! 💚\n\nจะแจ้งเตือนทุกวัน:\n🌅 06:00 - ปลุกตื่น\n🍱 12:00 - เตือนกินข้าว\n🏃 17:15 - เตือนออกกำลังกาย\n📦 19:30 - เตือนลงสินค้า\n\nถามอะไรก็ได้นะ บอทตอบทุกเรื่อง! 🤖'
       });
       continue;
     }
 
-    // รับข้อความแล้วให้ Gemini ตอบ
-    if (event.type === 'message' && event.message.type === 'text') {
+    if (event.type === 'message' && event.message?.type === 'text') {
       const userText = event.message.text.trim();
+      console.log('ข้อความ:', userText);
 
-      try {
-        // แสดง loading indicator
+      const aiReply = await askGemini(userText);
+      console.log('AI ตอบ:', aiReply.substring(0, 50));
 
-        // ถาม Gemini
-        const aiReply = await askGemini(userText);
-
-        await client.replyMessage(event.replyToken, {
-          type: 'text',
-          text: aiReply
-        });
-      } catch (err) {
-        console.error('Gemini error:', err);
-        await client.replyMessage(event.replyToken, {
-          type: 'text',
-          text: 'ขอโทษนะ บอทสมองแล่นไปซักครู่ ลองใหม่ได้เลย 😅'
-        });
-      }
+      await client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: aiReply
+      });
     }
   }
 });
