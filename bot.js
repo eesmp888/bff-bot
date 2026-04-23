@@ -130,7 +130,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
 
       try {
         // แสดง loading indicator
-        await client.showLoadingAnimation(event.source.userId, 5);
+      
 
         // ถาม Gemini
         const aiReply = await askGemini(userText);
