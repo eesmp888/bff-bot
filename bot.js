@@ -45,7 +45,7 @@ async function askGemini(userMessage) {
     body: JSON.stringify(body)
   });
 
-  const data = await response.json();
+  const data = await response.json(); console.log('Gemini response:', JSON.stringify(data));
 
   if (data?.candidates?.[0]?.content?.parts?.[0]?.text) {
     return data.candidates[0].content.parts[0].text;
