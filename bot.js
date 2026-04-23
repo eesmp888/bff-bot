@@ -107,7 +107,10 @@ cron.schedule('15 17 * * *', () => pushMsg(rand(messages.exercise)), { timezone:
 cron.schedule('30 19 * * *', () => pushMsg(rand(messages.product)),  { timezone: 'Asia/Bangkok' });
 
 // ===== WEBHOOK =====
-app.post('/webhook', middleware(config), async (req, res) => {
+app.post('/webhook', (req, res, next) => {
+  console.log('📨 LINE ส่งข้อความมาแล้ว!');
+  next();
+}, middleware(config), async (req, res) => {
   res.json({ status: 'ok' });
 
   for (const event of req.body.events) {
