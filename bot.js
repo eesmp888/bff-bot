@@ -1,6 +1,6 @@
 // ===================================
 // 🤖 กาก้าบอท - เพื่อนแท้ + ที่ปรึกษา
-// LINE Bot + Gemini AI
+// LINE Bot + Groq AI (ฟรี เร็ว แรง!)
 // ===================================
 
 const express = require('express');
@@ -15,45 +15,48 @@ const config = {
 const client = new Client(config);
 const app = express();
 let USER_ID = process.env.LINE_USER_ID || '';
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
-// ===== เรียกใช้ Gemini AI =====
-async function askGemini(userMessage) {
+// ===== เรียกใช้ Groq AI =====
+async function askGroq(userMessage) {
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
-
-    const body = {
-      system_instruction: {
-        parts: [{
-          text: `คุณคือ "กาก้าบอท" เพื่อนแท้และที่ปรึกษาส่วนตัวในไลน์
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${GROQ_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          {
+            role: 'system',
+            content: `คุณคือ "กาก้าบอท" เพื่อนแท้และที่ปรึกษาส่วนตัวในไลน์
 
 บุคลิก:
 - ถ้าผู้ใช้คุยเล่น ตลก ไม่จริงจัง → ตอบสนุกๆ มีมุก ใช้ภาษาวัยรุ่น มีอิโมจิ
-- ถ้าผู้ใช้ถามจริงจัง เช่น งาน สุขภาพ การเงิน → ตอบฉลาด จริงจัง ให้คำแนะนำดีๆ
+- ถ้าผู้ใช้ถามจริงจัง เช่น งาน สุขภาพ การเงิน ชีวิต → ตอบฉลาด จริงจัง ให้คำแนะนำดีๆ
 - พูดภาษาไทยเสมอ
-- ตอบสั้นกระชับ เหมาะกับไลน์`
-        }]
-      },
-      contents: [{
-        role: 'user',
-        parts: [{ text: userMessage }]
-      }]
-    };
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
+- ตอบสั้นกระชับ เหมาะกับการอ่านในไลน์ ไม่ยาวเกินไป`
+          },
+          {
+            role: 'user',
+            content: userMessage
+          }
+        ],
+        max_tokens: 500,
+        temperature: 0.8
+      })
     });
 
     const data = await response.json();
-    console.log('Gemini status:', response.status);
+    console.log('Groq status:', response.status);
 
-    if (data?.candidates?.[0]?.content?.parts?.[0]?.text) {
-      return data.candidates[0].content.parts[0].text;
+    if (data?.choices?.[0]?.message?.content) {
+      return data.choices[0].message.content;
     }
 
-    console.log('Gemini error:', JSON.stringify(data?.error));
+    console.log('Groq error:', JSON.stringify(data?.error));
     return 'ขอโทษนะ บอทงงนิดนึง ลองใหม่ได้เลย 😅';
 
   } catch (err) {
@@ -140,7 +143,7 @@ app.post('/webhook', async (req, res) => {
       const userText = event.message.text.trim();
       console.log('ข้อความ:', userText);
 
-      const aiReply = await askGemini(userText);
+      const aiReply = await askGroq(userText);
       console.log('AI ตอบ:', aiReply.substring(0, 50));
 
       await client.replyMessage(event.replyToken, {
